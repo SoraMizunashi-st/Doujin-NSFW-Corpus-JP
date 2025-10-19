@@ -1,0 +1,8 @@
+function KATAKANA(input) 
+{
+  // 全角カタカナに変換
+  return input.toString().replace(/[ぁ-ん]/g, function(s)
+  {
+    return String.fromCharCode(s.charCodeAt(0) + 0x60);
+  });
+}

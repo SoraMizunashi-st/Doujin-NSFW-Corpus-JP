@@ -58,3 +58,19 @@ Bash
 
 python CopyAllFiles.py <source_dir> <copy_dir>
 # Example: python CopyAllFiles.py ./raw/Uncategorize ./raw/CopyDirectory
+
+//------------------------------------------------------------------------------------------------------
+# 5) testTextAnalyzerToBasicDic2.py
+//------------------------------------------------------------------------------------------------------
+
+Analyzes a plain text file for the occurrence frequency of words listed in a CSV dictionary. This is crucial for analyzing specialized domain weight and verifying the distribution of synonyms across your corpus. (The search is case-insensitive).
+
+Usage
+Bash
+
+python AnakysisWord.py <dictionary_path> <text_path>
+
+
+
+
+#Example: python .\script\py\testTextAnalyzerToBasicDic2.py .\raw\test\testDic_20251019_AdultBasicWord.csv .\raw\Uncategorized\Raw_sora004_org.txt
