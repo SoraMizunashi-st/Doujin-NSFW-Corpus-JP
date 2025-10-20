@@ -1,0 +1,2 @@
+python .\script\py\testTextAnalyzerToBasicDic2.py '.\raw\test\testDic_20251020_SuperWordDic .csv' .\raw\Uncategorized\Raw_sora001_org.txt
+python .\script\py\testTextCategoryzer.py '.\raw\test\testDic_20251020_SuperWordDic .csv'

@@ -6,7 +6,8 @@ import os
 def count_words_and_accumulate(dictionary_path, text_path):
     """
     辞書ファイル内の単語の出現回数をテキストファイルでカウントし、
-    結果を既存の辞書ファイルの6番目の要素（インデックス5）に加算して上書き保存する。
+    結果を既存の辞書ファイルのCOUNT列（インデックス17）に加算して上書き保存する。
+    辞書の最終行にあるメタ情報も全て保持する。
 
     Args:
         dictionary_path (str): カウント対象の単語リストを含むCSVファイルのパス（上書きされる）。
@@ -22,48 +23,55 @@ def count_words_and_accumulate(dictionary_path, text_path):
         print(f"エラー: テキストファイルが見つかりません: {text_path}", file=sys.stderr)
         sys.exit(1)
 
+    # 辞書構造に基づいたインデックス定義
+    # ID: 0, Category: 1, Hiragana: 2, Katakana: 3, Kanji: 4
+    # count列のインデックスは 17
+    COUNT_COLUMN_INDEX = 17 
+    MIN_REQUIRED_COLUMNS = 5 # ID, Category, MTable1(ひらがな), MTable2(カタカナ), MTable3(漢字)
+
     # 2. 辞書ファイルの読み込みと単語リストの準備
-    id_to_words = defaultdict(list)
     word_to_id = {}
     original_rows = []
     existing_counts = {}
-    
-    # カウント列のインデックスは 5 (6番目の要素)
-    COUNT_COLUMN_INDEX = 15 
+    header_out = None
 
     try:
         with open(dictionary_path, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
             header = next(reader, None)
             
-            header_out = header
+            if header:
+                header_out = header
 
             for row in reader:
-                # 少なくともID、Category、hiragana, katakana, kanji, COUNTの6要素が必要
-                if len(row) < 6:
-                    original_rows.append(row)
+                # 元の行データを保持 (全ての列を維持するため)
+                original_rows.append(row) 
+                
+                # ターゲット単語の取得に必要な列数チェック
+                if len(row) < MIN_REQUIRED_COLUMNS:
                     continue
 
                 id_val = row[0].strip()
                 
-                # 既存のカウント値を取得（インデックス5）
+                # 既存のカウント値を取得
                 try:
-                    existing_count = int(row[COUNT_COLUMN_INDEX].strip() or 0)
-                except (ValueError, IndexError):
-                    existing_count = 0  # 6要素目がない、または数字でない場合は0とする
+                    # COUNT_COLUMN_INDEXが存在し、整数に変換できるか確認
+                    if len(row) > COUNT_COLUMN_INDEX:
+                        existing_count = int(row[COUNT_COLUMN_INDEX].strip() or 0)
+                    else:
+                        existing_count = 0 # カウント列が存在しない場合は 0
+                except ValueError:
+                    existing_count = 0 
                 
                 existing_counts[id_val] = existing_count
-                original_rows.append(row) # 元の行データを保持
 
-                # ターゲットとなる単語 (hiragana: row[2], katakana: row[3], kanji: row[4])
-                # インデックス 2, 3, 4 の3つのみを単語として取得
+                # ターゲットとなる単語 (Hiragana: row[2], Katakana: row[3], Kanji: row[4])
                 words = [word.strip() for word in row[2:5] if word.strip()]
                 
                 if id_val and words:
-                    id_to_words[id_val].extend(words)
                     for word in words:
                         word_lower = word.lower()
-                        # 重複する単語は最初に登録されたIDを使用
+                        # 重複する単語は最初に登録されたIDを使用 (語彙としてのカウントは1回)
                         if word_lower not in word_to_id:
                             word_to_id[word_lower] = id_val
 
@@ -74,9 +82,10 @@ def count_words_and_accumulate(dictionary_path, text_path):
         )
         sys.exit(1)
 
-    if not id_to_words:
+    if not word_to_id:
         print("警告: 辞書ファイルに有効な単語が含まれていません。", file=sys.stderr)
-        sys.exit(0)
+        # 有効な単語がなくても、ヘッダーと元の行を書き出すために処理を継続
+        pass 
 
     all_target_words = list(word_to_id.keys())
 
@@ -95,12 +104,15 @@ def count_words_and_accumulate(dictionary_path, text_path):
     # 4. ターゲット単語の出現回数をIDごとにカウント
     new_counts = defaultdict(int)
 
+    # 辞書内の全てのターゲット単語をテキスト内で検索
+    # NOTE: これは単純な文字列検索（SubString Match）であり、
+    # 厳密な単語境界を考慮していません。
     for target_word_lower in all_target_words:
         target_id = word_to_id[target_word_lower]
-        # 単純な文字列検索でカウント
         count = text_lower.count(target_word_lower)
         if count > 0:
-            new_counts[target_id] += count
+            # 複数の表記(ひらがな/カタカナ/漢字)が同じIDを持つ場合、カウントを加算
+            new_counts[target_id] += count 
 
     # 5. 結果を既存の辞書ファイルに加算して上書き保存
     try:
@@ -113,8 +125,9 @@ def count_words_and_accumulate(dictionary_path, text_path):
             
             # 元のデータに行ごとに新しいカウント結果を加算して書き出す
             for row in original_rows:
-                if not row or len(row) < COUNT_COLUMN_INDEX:
-                    writer.writerow(row) # 6要素未満の行はそのまま出力
+                # 行が短すぎる場合はそのまま出力し、メタ情報は消さない
+                if not row or len(row) <= COUNT_COLUMN_INDEX:
+                    writer.writerow(row) 
                     continue
                 
                 id_val = row[0].strip()
@@ -128,8 +141,11 @@ def count_words_and_accumulate(dictionary_path, text_path):
                 # 累積カウントを計算
                 total_count = existing_count + current_file_count
 
-                # 元の行のインデックス5（6番目の要素）を、累積カウントで置き換える
-                new_row = list(row) # リストに変換して値を変更可能にする
+                # 元の行をリストに変換して値を変更
+                new_row = list(row) 
+                
+                # インデックス17のカウント列を、累積カウントで置き換える
+                # ※インデックス18以降の全てのメタ情報はそのまま保持されます
                 new_row[COUNT_COLUMN_INDEX] = str(total_count)
                 
                 writer.writerow(new_row)
@@ -144,7 +160,7 @@ def count_words_and_accumulate(dictionary_path, text_path):
     # 完了メッセージ
     print("-" * 30)
     print(f"✅ 集計値の**累積加算**が完了しました。")
-    print(f"辞書ファイル: {os.path.basename(dictionary_path)} （6要素目/COUNT列を上書き）")
+    print(f"辞書ファイル: {os.path.basename(dictionary_path)} （COUNT列[インデックス{COUNT_COLUMN_INDEX}]を上書き、メタ情報保持）")
     print(f"ターゲットテキスト: {os.path.basename(text_path)}")
     print("-" * 30)
 
