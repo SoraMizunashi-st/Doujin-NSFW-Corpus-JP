@@ -26,7 +26,7 @@ This project strictly adheres to a completely free license model. By **not using
 
 If you'd like to support this mission, we would be grateful for your help in data creation or categorization.
 
-Please feel free to contact me, Minashi Sora.
+Please feel free to contact me, Mizunashi Sora.
 
 Thank you :)
 
